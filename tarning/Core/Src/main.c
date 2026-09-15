@@ -142,6 +142,37 @@ void put_die_dots(uint8_t die_nbr)
 	}
 }
 
+
+
+
+const uint16_t sseg[10] = {
+		0x05F, //0
+		0x006, //1
+		0x09B, //2
+		0x08F, //3
+		0x0C6, //4
+		0x0CD, //5
+		0x0DD, //6
+		0x007, //7
+		0x0DF, //8
+		0x0CF //9
+};
+
+const uint16_t sseg_err = 0x1AC;
+
+
+void put_on_sseg(uint8_t dec_nbr)
+{
+	if(dec_nbr <= 9)
+	{
+		GPIOC->ODR = sseg[dec_nbr];
+	}
+	else
+	{
+		GPIOC->ODR = sseg_err;
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -186,6 +217,15 @@ int main(void)
   HAL_Delay(1000);
 
 
+  for(uint8_t i=0; i<=9; i++)
+  {
+	  put_on_sseg(i);
+	  HAL_Delay(333);
+  }
+
+  put_on_sseg(88);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -214,11 +254,11 @@ int main(void)
 	  }
     /* USER CODE END WHILE */
 
-
     /* USER CODE BEGIN 3 */
 	  put_die_dots(die_value);
+	  put_on_sseg(die_value);
 
-	  HAL_Delay(100);
+	  HAL_Delay(1);
 
   }
   /* USER CODE END 3 */
@@ -327,6 +367,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
+                          |GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, SMPS_EN_Pin|SMPS_V1_Pin|SMPS_SW_Pin|DI_A_Pin
                           |DI_B_Pin|DI_C_Pin|DI_D_Pin|DI_E_Pin, GPIO_PIN_RESET);
 
@@ -338,6 +382,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PC0 PC1 PC2 PC3
+                           PC4 PC6 PC7 PC8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
+                          |GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SMPS_EN_Pin SMPS_V1_Pin SMPS_SW_Pin DI_A_Pin
                            DI_B_Pin DI_C_Pin DI_D_Pin DI_E_Pin */
