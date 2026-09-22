@@ -65,8 +65,16 @@ enum event
 {
 	ev_none,
 	ev_button_push,
-	ev_state_timeout
+	ev_state_timeout,
+	ev_error = -99
 };
+
+#define EVQ_SIZE 10
+
+enum event evq[EVQ_SIZE];
+int evq_count = 0;      // hur många events som finns i
+int evq_front_ix = 0;  // början av kön
+int evq_rear_ix = 0;   // slutet av kön
 
 enum state
 {
@@ -173,6 +181,78 @@ void push_button_light_off(void)
 	HAL_GPIO_WritePin(BUTTON_LED_GPIO_Port, BUTTON_LED_Pin, GPIO_PIN_RESET);
 }
 
+
+
+void evq_init(void)  // går igenom alla 10 platser, sätter dom till ev_error vilket betyder att den inte innehåller några riktiga events.
+{
+	for(int i = 0; i < EVQ_SIZE; i++)
+	{
+		evq[i] = ev_error;
+	}
+}
+
+
+void evq_push_back(enum event e)
+{
+	if(evq_count < EVQ_SIZE)  // ignorerar nya eventet om kön är full
+	{
+		evq[evq_rear_ix] = e;
+
+		evq_rear_ix++;
+		evq_rear_ix %= EVQ_SIZE; //gör att index går tillbaks till 0 efter plats 9
+
+		evq_count++;
+	}
+}
+
+
+enum event evq_pop_front(void)
+{
+	enum event e = ev_none;
+
+	if(evq_count > 0)
+	{
+		e = evq[evq_front_ix];
+
+		evq[evq_front_ix] = ev_error;
+
+		evq_front_ix++;
+		evq_front_ix %= EVQ_SIZE;
+
+		evq_count--;
+	}
+
+	return e;
+}
+
+
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin == B1_Pin)
+	{
+
+		evq_push_back(ev_button_push);
+	}
+}
+
+
+
+uint32_t ticks_left_in_state = 0;
+
+void my_systick_handler(void)
+{
+	if(ticks_left_in_state > 0)
+	{
+		ticks_left_in_state--;
+
+		if(ticks_left_in_state == 0)
+		{
+			evq_push_back(ev_state_timeout);
+		}
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -218,12 +298,13 @@ int main(void)
   int curr_press = is_button_pressed();
   int last_press = curr_press;
 
-  uint32_t ticks_left_in_state = 0;
+
   uint32_t curr_tick = HAL_GetTick();
   uint32_t last_tick = curr_tick;
 
   set_traffic_lights(st);  //ovanför deklarerar vi att st = s_init därför blir detta startvärde s_init
 
+  evq_init();   // initierar kön innan while loopen körs
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -233,7 +314,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
+/*
 	  ev = ev_none;
 
 	  curr_press = is_button_pressed();
@@ -264,7 +345,9 @@ int main(void)
 			  }
 		  }
 	  }
+*/
 
+	  ev = evq_pop_front();
 
 	  switch(st)
 	  {
@@ -354,6 +437,8 @@ int main(void)
 
 
 	  }
+
+
 
 
   }
@@ -565,6 +650,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD4_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
